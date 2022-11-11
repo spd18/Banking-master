@@ -1,0 +1,98 @@
+pragma solidity ^0.4.24;
+
+contract Bank {
+    struct Transaction{
+        address to;
+        address from;
+        uint amount;
+        uint8 signatureCount;
+        mapping (address => uint8) signatures;
+    }
+    
+    uint constant MIN_SIGNATURES = 2;
+    address private owner;
+    mapping(address => uint) private owners;
+    mapping(uint => Transaction) private transactions;
+    uint[] private _pendingTransactions;
+    uint TransactionID;
+
+    modifier isOwner() {
+        require(msg.sender == owner,"sender not authorized");
+        _;
+    }
+
+    modifier validOwner() {
+        require(msg.sender == owner || owners[msg.sender] == 1,"sender not authoreized and one of the owner");
+        _;
+    }
+
+    constructor () public {
+        TransactionID = 0;
+    }
+
+    function deposit() public payable {
+        Transaction memory transaction;
+        transaction.to = msg.sender;
+        transaction.from = msg.sender;
+        transaction.amount = msg.value;
+        transaction.signatureCount = 0;
+
+        transactions[TransactionID] = transaction;
+        _pendingTransactions.push(TransactionID);
+    }
+
+    function withdraw() public payable{
+        Transaction memory transaction;
+        transaction.to = msg.sender;
+        transaction.from = msg.sender;
+        transaction.amount = msg.value;
+        transaction.signatureCount = 0;
+
+        transactions[TransactionID] = transaction;
+        _pendingTransactions.push(TransactionID);
+    }
+
+    function signTransaction() public validOwner{
+        Transaction storage transaction = transactions[TransactionID];
+        require(0x0 != transaction.from,"Transaction must Exist");
+        require(msg.sender != transaction.from,"Creator Cant sign the transaction");
+        require(transaction.signatures[msg.sender] != 1,"Cant sign the transaction more than once");
+        transaction.signatures[msg.sender] = 1;
+        transaction.signatureCount++;
+
+        if (transaction.signatureCount >= MIN_SIGNATURES) {
+            require(address(this).balance >= transaction.amount,"Transaction amount is greator than balance in account");
+            transaction.to.transfer(transaction.amount);
+            deleteTransaction(TransactionID);
+        }
+    }
+
+    function deleteTransaction(uint TransactionID) public{
+        uint8 replace = 0;
+        for(uint i = 0; i < _pendingTransactions.length; i++) {
+            if (1 == replace) {
+                _pendingTransactions[i-1] = _pendingTransactions[i];
+            } else if (TransactionID == _pendingTransactions[i]) {
+                replace = 1;
+            }
+        }
+        delete _pendingTransactions[_pendingTransactions.length - 1];
+        _pendingTransactions.length--;
+        delete transactions[TransactionID];
+    }
+
+    function getPendingTransactions()
+        public
+        view
+        validOwner
+        returns (uint[]) {
+        return _pendingTransactions;
+    }
+    
+    function walletBalance()
+      public
+      view      
+      returns (uint) {
+        return address(this).balance;
+    }
+}

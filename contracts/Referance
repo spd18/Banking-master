@@ -1,0 +1,88 @@
+pragma solidity ^0.4.21;
+
+contract Bank {
+    uint public value;
+    address public to;
+    address public from;
+    enum State { Created, Locked, Inactive }
+    State public state;
+
+    // Ensure that `msg.value` is an even number.
+    // Division will truncate if it is an odd number.
+    // Check via multiplication that it wasn't an odd number.
+    constructor() public payable {
+        to = msg.sender;
+    }
+
+    modifier condition(bool _condition) {
+        require(_condition);
+        _;
+    }
+
+    modifier onlyfrom() {
+        require(msg.sender == from,"from sender error");
+        _;
+    }
+
+    modifier onlyto() {
+        require(msg.sender == to,"To sender error");
+        _;
+    }
+
+    modifier inState(State _state) {
+        require(state == _state,"Some error in state");
+        _;
+    }
+
+    event Aborted();
+    event TransactionConfirmed();
+    event TransactionReceived();
+
+    /// Abort the purchase and reclaim the ether.
+    /// Can only be called by the to before
+    /// the contract is locked.
+    function abort()
+        public
+        onlyto
+        inState(State.Created)
+    {
+        emit Aborted();
+        state = State.Inactive;
+        to.transfer(this.balance);
+    }
+
+    /// Confirm the purchase as from.
+    /// Transaction has to include `2 * value` ether.
+    /// The ether will be locked until confirmReceived
+    /// is called.
+    function confirmPurchase()
+        public
+        inState(State.Created)
+        condition(msg.value == (2 * value))
+        payable
+    {
+        emit TransactionConfirmed();
+        from = msg.sender;
+        state = State.Locked;
+    }
+
+    /// Confirm that you (the from) received the item.
+    /// This will release the locked ether.
+    function confirmReceived()
+        public
+        onlyfrom
+        inState(State.Locked)
+    {
+        emit TransactionReceived();
+        // It is important to change the state first because
+        // otherwise, the contracts called using `send` below
+        // can call in again here.
+        state = State.Inactive;
+
+        // NOTE: This actually allows both the from and the to to
+        // block the refund - the withdraw pattern should be used.
+
+        from.transfer(value);
+        to.transfer(this.balance);
+    }
+}

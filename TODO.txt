@@ -1,0 +1,15 @@
+Notes :
+	We need to implement the Tranastion structure------------------------------------------------------------------------------------------
+		struct transaction{
+			to
+			from
+			amount
+		}
+
+	This tranasction we need to persist in the MEMORY of our clock chain--------------------------------------------------------------------
+
+	We will write event and then rerender the form so we need not refersh form again and again AND also We will write this transaction to all the blocks in our block chain
+
+	BETA STATE:(if time is left)
+		We than need to make it more secure by ADDing the siganture or by adding the mining to it <== this will be done after all other task are compilted
+		We can also add it by having minimum signature rate
